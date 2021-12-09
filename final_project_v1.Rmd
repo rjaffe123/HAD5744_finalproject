@@ -11,6 +11,7 @@ library(readxl)
 library(janitor)
 library(lubridate) 
 library(purrr)
+library(stringr)
 
 dir <- setwd(getwd())
 
@@ -18,38 +19,38 @@ dir <- setwd(getwd())
 
 
 ## Read in data
-```{r}
+```{r death(outcome)}
 deathtable_expansion <- read_xlsx("deathtable_expansion.xlsx")
 deathtable_expansion <- deathtable_expansion %>% mutate(Population = as.numeric(Population))
 
-combined <- deathtable_expansion %>% group_by(State, Year) %>% mutate(all_deaths = sum(Deaths), all_pop = sum(Population, na.rm=TRUE), rate = all_deaths/all_pop) %>% distinct(State, Year, .keep_all = TRUE) %>% select(State, Year, all_deaths, all_pop, rate)
-  
-education <- read_xls("Education_state.xls") 
-education <- education[-c(1,2,3),]
-education <- education %>% row_to_names(row_number = 1)
-education <- education %>% select(State, `Percent of adults with less than a high school diploma, 2015-19`:`Percent of adults with a bachelor's degree or higher, 2015-19`)
+combined_death <- deathtable_expansion %>% group_by(State, Year) %>% mutate(all_deaths = sum(Deaths), all_pop = sum(Population, na.rm=TRUE), rate = all_deaths/all_pop) %>% distinct(State, Year, .keep_all = TRUE) %>% select(State, Year, all_deaths, all_pop, rate)
+```
 
+```{r eduation}
+# education <- read_xls("Education_state.xls") 
+# education <- education[-c(1,2,3),]
+# education <- education %>% row_to_names(row_number = 1)
+# education <- education %>% select(State, `Percent of adults with less than a high school diploma, 2015-19`:`Percent of adults with a bachelor's degree or higher, 2015-19`)
+```
 
+```{r unemployment}
 unemployment <- read_xlsx("Unemployment (1).xlsx")
 unemployment<- unemployment[-c(1,2,3),]
 unemployment<- unemployment %>% row_to_names(row_number = 1)
-unemployment <- unemployment %>% select(State, Area_name, Employed_2010:Med_HH_Income_Percent_of_State_Total_2019)
-unemployment1 <- education %>% left_join(unemployment, by = "State") %>% distinct(State, `Percent of adults with less than a high school diploma, 2015-19`, .keep_all=TRUE)
+unemployment <- unemployment %>% select(State, Area_name, Civilian_labor_force_2010:Med_HH_Income_Percent_of_State_Total_2019)
+unemployment <- unemployment %>% filter(!grepl(",", Area_name)) ## remove counties
+unemployment <- unemployment[-10,] ##remove DC (its duplicated)
+unemployment1 <- unemployment %>% pivot_longer(cols = c(Civilian_labor_force_2010:Med_HH_Income_Percent_of_State_Total_2019), names_to = "unemploy_variable") 
+unemployment1 <- unemployment1 %>% mutate(Year = str_extract(unemploy_variable, "[^_]+$")) %>% mutate(Year = as.numeric(Year)) ## get year from each variable
+unemployment1 <- unemployment1 %>% mutate(unemploy_variable = gsub('.{5}$', '', unemploy_variable)) ## remove year from variable name
+unemployment1 <-unemployment1 %>% filter(!State == "US")
+unemployment1 <- unemployment1 %>% rename(State = Area_name, state_abrev = State)
+unemployment2 <- unemployment1 %>% pivot_wider(id_cols = c(State:Year), names_from = unemploy_variable, values_from = value)
+unemployment2 <- unemployment2 %>% mutate(State = as.factor(State)) %>%mutate_if(is.character,as.numeric)
 
 ```
 
-```{r}
-# unemployment2 <- unemployment1 %>% group_by(State) %>% slice(rep(1:n(), each = 10))
-# unemployment2$year <- rep_len(2010:2019, length.out =530)
-# unemployment3 <- unemployment2 %>% select(State, Area_name, year, `Percent of adults with less than a high school diploma, 2015-19`:`Percent of adults with a bachelor's degree or higher, 2015-19`, Employed_2010: Med_HH_Income_Percent_of_State_Total_2019)
-# 
-# ## cols - state, area_name, year, education1, education2, education3, employment1, unemployment, rate, laborforce
-# # unemployment4 <- unemployment4 %>% mutate(less_highschool = , highschool = , some_college = , bachelor_higher = ,  employed = , unemployed = , unemploy_rate = , labor_force = ,)
-# 
-# unemployment3 %>% group_by(State) %>% group_modify()
-```
-
-```{r}
+```{r expansion date}
 expansion_date <- read_excel("ExpansionData.xlsx")
 expansion_date <- expansion_date %>% rename(date = `Expansion date`)
 expansion_date[ expansion_date == "NA" ] <- NA
@@ -58,7 +59,7 @@ expansion_date <- expansion_date %>% mutate_at(vars(date), ~as.Date(., origin = 
 
 ```
 
-```{r}
+```{r age}
 age_data_0 <- read.csv("Age data.csv")
 age_data1 <- age_data_0[-c(1:4)]
 age_data1 <- age_data1[-c(4)]
@@ -72,7 +73,7 @@ age_data1 <- age_data1 %>% mutate(across(contains('20'),  ## does age * # people
                                   
 age_data2 <- age_data1 %>% filter(name != "United States") 
 
-age_data3 <- age_data2 %>% group_by(name) %>% mutate(across(contains('20'),  ## does age * # people per year so we can do the median
+age_data3 <- age_data2 %>% group_by(name) %>% mutate(across(contains('20'), 
                                                             .fns = list(s = ~(sum(.))), 
                                                             .names = "{col}_{fn}")) 
 age_data4 <- age_data3 %>% distinct(name, .keep_all=TRUE) %>% select(-c(sex, age)) %>% select(name, c(`2010_s`:`2019_f_s`))
@@ -89,8 +90,57 @@ final <- final %>% rename("Mean_Age" = value)
 
 
 ## Concat data
-```{r}
-
-final_data <- unemployment1 %>% full_join(deathtable_expansion, by.x="State", by.y="State")
+```{r concat data}
+## death (outcome): combined_death
+## Age: final
+## expansion date: expansion date (diff and diff)
+## employment: unemployment1
+final_data <- combined_death %>% left_join(unemployment2, by.x = c(State, Year), by.y=c(State, Year))
 final_data <- final_data %>% full_join(expansion_date, by="State")
+final_data <- final_data %>% mutate(Year = year(as.Date(as.character(Year), format = "%Y")))
+## group data based on expansion date
+final_data <- final_data %>% mutate(expan_group = case_when(
+  is.na(date) == TRUE ~ "no_expansion",
+  date < as.Date("2014-02-01") ~ "early_expansion",
+  date > as.Date("2014-02-01") & date < as.Date("2018-01-01") ~"middle_expansion",
+  date > as.Date("2018-01-01") ~ "late_expansion"
+))
+final_data <- final_data %>% mutate(expan_group = as.factor(expan_group))
+final_data <- final_data %>% filter(!is.na(Year))
 ```
+
+## group by expansion date
+```{r}
+final_data_grouped <- final_data %>% group_by(expan_group, Year) %>% select_if(is.numeric) %>% summarise_at(vars(-group_cols(), c(all_deaths, all_pop, Employed, Unemployed, Civilian_labor_force)), sum, na.rm=TRUE)
+final_data_grouped <- final_data_grouped %>% mutate(Unemployment_rate  = Unemployed / Civilian_labor_force,
+                                                    rate = all_deaths / all_pop) %>% rename(death_rate= rate)
+                                          
+
+```
+
+
+## Let's look at plots
+```{r initial plots}
+final_data_grouped %>% ggplot(aes(Year, death_rate, color=expan_group))+stat_summary(geom = 'line') +
+    #geom_vline(xintercept = 1994) +
+  scale_x_continuous(breaks =seq(2010, 2019,1))+
+    theme_minimal()
+ggsave("initial_plot.png")
+```
+
+## organize data for d-d 
+```{r}
+# dummy for time
+final_data_grouped <- final_data_grouped %>% mutate(time = ifelse(Year >= 2016, 1, 0 ))
+final_data_grouped <- final_data_grouped %>% mutate(treated = ifelse(!expan_group %in% c("no_expansion", "late_expansion"), 1, 0 ))
+final_data_grouped <- final_data_grouped %>% mutate(did = time*treated)
+
+
+```
+
+## modeling
+```{r}
+didreg1 = lm(death_rate ~ Unemployment_rate + treated*time, data = final_data_grouped)
+summary(didreg1)
+```
+
