@@ -6,6 +6,7 @@ output: html_document
 ---
 ## Libraries and initialize
 ```{r}
+rm(list = ls())
 library(tidyverse)
 library(readxl)
 library(janitor)
@@ -49,6 +50,28 @@ unemployment2 <- unemployment1 %>% pivot_wider(id_cols = c(State:Year), names_fr
 unemployment2 <- unemployment2 %>% mutate(State = as.factor(State)) %>%mutate_if(is.character,as.numeric)
 
 ```
+```{r workforce}
+workforce <- read_excel("physician_total (1).xlsx", sheet = "Sheet4")
+workforce <- workforce %>% select(STATE:EMP_2019)
+workforce <- workforce %>% rename(State = STATE)
+workforce <- workforce %>% pivot_longer(cols = c(EMP_2010:EMP_2019), names_to = "physician_variable")
+workforce  <- workforce  %>% mutate(Year = str_extract(physician_variable, "[^_]+$")) %>% mutate(Year = as.numeric(Year))
+workforce<- workforce %>% mutate(physician_variable = gsub('.{5}$', '', physician_variable)) ## remove year from variable name
+workforce <- workforce %>% pivot_wider(names_from = physician_variable, values_from = value)
+workforce <- workforce %>% rename(physician_total = EMP)
+```
+
+```{r injection}
+injection <- read_excel("injection.xlsx",sheet = "Sheet2")
+injection <- injection %>% select(STATE:LEGAL_2019)
+injection <- injection %>% rename(State = STATE)
+injection <- injection %>% pivot_longer(cols = c(LEGAL_2010:LEGAL_2019), names_to = "variable")
+injection  <- injection  %>% mutate(Year = str_extract(variable, "[^_]+$")) %>% mutate(Year = as.numeric(Year))
+injection<- injection %>% mutate(variable = gsub('.{5}$', '', variable)) ## remove year from variable name
+injection <- injection %>% pivot_wider(names_from = variable, values_from = value)
+injection <- injection %>% rename(legal_injection = LEGAL)
+```
+
 
 ```{r expansion date}
 expansion_date <- read_excel("ExpansionData.xlsx")
@@ -84,27 +107,76 @@ new <- data.frame(sapply(patterns, function(x) age_data4[,grep(x, names(age_data
 final <- new %>% cbind(age_data4$name)
 colnames(final) <- c("2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "State")
 final <- final %>% select(State, c(`2010`:`2019`))
-final <- final %>% pivot_longer(cols = c(`2010`:`2019`), names_to = "year")
+final <- final %>% pivot_longer(cols = c(`2010`:`2019`), names_to = "Year")
 final <- final %>% rename("Mean_Age" = value)
+final <- final %>% mutate(Year = as.numeric(Year))
+```
+
+
+```{r medicaid spending}
+spending <- read_xlsx("Annual_bydrug_2019Q3.xlsx", sheet = "Annual_bydrug_2019Q3")
+state_names <- read_xlsx("Annual_bydrug_2019Q3.xlsx", sheet = "Sheet1")
+spending <- spending %>% full_join(state_names)
+
+spending <- spending %>% filter(drugtype == "all") %>% rename(Year = year) %>% select(State, Year, imprx:percap_unadjmedamt)
+```
+
+
+```{r other death}
+other_deaths <- read_xlsx("Underlying Cause of Death, 1999-2019.xlsx", sheet = "All Cause of Death")
+other_deaths <- other_deaths %>% pivot_longer(cols = c(Deaths2010:Deaths2019), names_to = "variable")
+other_deaths  <-other_deaths  %>% mutate(Year = str_extract(variable, "[^s]+$")) %>% mutate(Year = as.numeric(Year))
+other_deaths <- other_deaths  %>% mutate(variable = gsub('.{4}$', '', variable)) ## remove year from variable name
+other_deaths <- other_deaths  %>% pivot_wider(names_from = variable, values_from = value)
+other_deaths  <- other_deaths  %>% rename(other_deaths = Deaths)
+other_deaths <- other_deaths  %>% mutate(Year = as.numeric(Year))
 ```
 
 
 ## Concat data
 ```{r concat data}
-## death (outcome): combined_death
-## Age: final
-## expansion date: expansion date (diff and diff)
-## employment: unemployment1
+
+##unemployment
 final_data <- combined_death %>% left_join(unemployment2, by.x = c(State, Year), by.y=c(State, Year))
+## expansion date
 final_data <- final_data %>% full_join(expansion_date, by="State")
 final_data <- final_data %>% mutate(Year = year(as.Date(as.character(Year), format = "%Y")))
+
+## Add physician data
+
+final_data <- final_data %>% full_join(workforce)
+# final_data <- final_data %>% mutate(physician_per_pop = physician_total/all_pop)
+
+#Add SEP data
+final_data <- final_data %>% full_join(injection)
+
+## add age data
+final_data <- final_data %>% left_join(final, by = c("State", "Year"))
+
+## spending data
+final_data <- final_data %>% left_join(spending, by= c("State", "Year") )
+
+## other deaths
+final_data <- final_data %>% left_join(other_deaths, by= c("State", "Year") )
+# final_data <- final_data %>% mutate(other_deaths_perpop = other_deaths/all_pop)
+
+final_data <- final_data %>% select(-c(Median_Household_Income, Med_HH_Income_Percent_of_State_Total))
+```
+
+```{r groupdata}
 ## group data based on expansion date
+# final_data <- final_data %>% mutate(expan_group = case_when(
+#   is.na(date) == TRUE ~ "no_expansion",
+#   date < as.Date("2014-02-01") ~ "early_expansion",
+#   date > as.Date("2014-02-01") & date < as.Date("2018-01-01") ~"middle_expansion",
+#   date > as.Date("2018-01-01") ~ "late_expansion"
+# ))
 final_data <- final_data %>% mutate(expan_group = case_when(
   is.na(date) == TRUE ~ "no_expansion",
-  date < as.Date("2014-02-01") ~ "early_expansion",
-  date > as.Date("2014-02-01") & date < as.Date("2018-01-01") ~"middle_expansion",
-  date > as.Date("2018-01-01") ~ "late_expansion"
+  date < as.Date("2018-01-01") ~ "expansion",
+  date > as.Date("2018-01-01") ~ "no_expansion"
 ))
+final_data <- final_data %>% filter(!State %in% c("California", "Connecticut", "District of Columbia", "Minnestoa", "Washington"))
 final_data <- final_data %>% mutate(expan_group = as.factor(expan_group))
 final_data <- final_data %>% filter(!is.na(Year))
 ```
