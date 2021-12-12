@@ -176,35 +176,61 @@ final_data <- final_data %>% mutate(expan_group = case_when(
   date < as.Date("2018-01-01") ~ "expansion",
   date > as.Date("2018-01-01") ~ "no_expansion"
 ))
-final_data <- final_data %>% filter(!State %in% c("California", "Connecticut", "District of Columbia", "Minnestoa", "Washington"))
+final_data <- final_data %>% filter(!State %in% c("California", "Connecticut", "District of Columbia", "Minnestoa", "Washington", "Colorado"))
 final_data <- final_data %>% mutate(expan_group = as.factor(expan_group))
 final_data <- final_data %>% filter(!is.na(Year))
 ```
 
+## standardize data
+
+```{r}
+final_data<-final_data %>% mutate(difference = round(interval(as.Date(as.character(Year), format = "%Y"),as.Date(date) ) /years(1)))
+final_data <- final_data %>% filter(!(difference >3 | difference < -3) | is.na(difference))
+final_data <- final_data %>% mutate(difference = difference*-1)
+
+## for no expansion --> y=0 is the mean of the expansion group at 2014. 
+test <- final_data %>% group_by(expan_group) %>% summarize(mean_date = mean(date, na.rm=TRUE))
+
+final_data1 <- subset(final_data, is.na(date)) %>% mutate(difference = round(interval(as.Date(as.character(Year), format = "%Y"),as.Date(as.character(2014), format = "%Y") ) /years(1))) 
+final_data1 <- final_data1 %>% filter(!(difference >3 | difference < -3) | is.na(difference))
+final_data1 <- final_data1 %>% mutate(difference = difference*-1)
+
+final_data <- final_data %>% filter(!is.na(date)) %>% rbind(final_data1)
+```
+
+
+
+
 ## group by expansion date
 ```{r}
-final_data_grouped <- final_data %>% group_by(expan_group, Year) %>% select_if(is.numeric) %>% summarise_at(vars(-group_cols(), c(all_deaths, all_pop, Employed, Unemployed, Civilian_labor_force)), sum, na.rm=TRUE)
-final_data_grouped <- final_data_grouped %>% mutate(Unemployment_rate  = Unemployed / Civilian_labor_force,
-                                                    rate = all_deaths / all_pop) %>% rename(death_rate= rate)
-                                          
+final_data_grouped <- final_data %>% group_by(expan_group, difference) %>% select_if(is.numeric) %>% summarise_at(vars(-group_cols(), c(all_deaths, all_pop, Employed, Unemployed, Civilian_labor_force)), sum, na.rm=TRUE)
+count <- final_data %>% group_by(expan_group, difference) %>% summarize(count = n()) %>% pull(count)
+final_data_grouped <- final_data_grouped %>% cbind(count) %>% rename(count = ...21)
 
+final_data_grouped <- final_data_grouped %>% mutate(Unemployment_rate  = Unemployed / Civilian_labor_force,
+                                                    rate = all_deaths / all_pop,
+                                                    other_deaths_perpop = other_deaths / all_pop,
+                                                    phyisican_perpop = physician_total/all_pop,
+                                                    Mean_Age = Mean_Age /count,
+                                                    spending_ave_pergroup = unadjmedamt / count) %>% rename(death_rate= rate)
+                                          
 ```
 
 
 ## Let's look at plots
 ```{r initial plots}
-final_data_grouped %>% ggplot(aes(Year, death_rate, color=expan_group))+stat_summary(geom = 'line') +
+final_data_grouped %>% ggplot(aes(difference, death_rate, color=expan_group))+stat_summary(geom = 'line') +
     #geom_vline(xintercept = 1994) +
-  scale_x_continuous(breaks =seq(2010, 2019,1))+
+  scale_x_continuous(breaks =seq(-3, 3,1))+
     theme_minimal()
-ggsave("initial_plot.png")
+#ggsave("initial_plot.png")
 ```
 
 ## organize data for d-d 
 ```{r}
 # dummy for time
-final_data_grouped <- final_data_grouped %>% mutate(time = ifelse(Year >= 2016, 1, 0 ))
-final_data_grouped <- final_data_grouped %>% mutate(treated = ifelse(!expan_group %in% c("no_expansion", "late_expansion"), 1, 0 ))
+final_data_grouped <- final_data_grouped %>% mutate(time = ifelse(difference >=0, 1, 0 ))
+final_data_grouped <- final_data_grouped %>% mutate(treated = ifelse(expan_group == "expansion", 1, 0))
 final_data_grouped <- final_data_grouped %>% mutate(did = time*treated)
 
 
@@ -212,7 +238,8 @@ final_data_grouped <- final_data_grouped %>% mutate(did = time*treated)
 
 ## modeling
 ```{r}
-didreg1 = lm(death_rate ~ Unemployment_rate + treated*time, data = final_data_grouped)
+didreg <- lm(death_rate ~ time*treated, data = final_data_grouped)
+didreg1 = lm(death_rate ~ phyisican_perpop + spending_ave_pergroup + treated*time, data = final_data_grouped)
 summary(didreg1)
 ```
 
