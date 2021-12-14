@@ -6,7 +6,7 @@ output: html_document
 ---
 ## Libraries and initialize
 ```{r}
-rm(list = ls())
+#rm(list = ls())
 library(tidyverse)
 library(readxl)
 library(janitor)
@@ -27,13 +27,6 @@ deathtable_expansion <- deathtable_expansion %>% mutate(Population = as.numeric(
 combined_death <- deathtable_expansion %>% group_by(State, Year) %>% mutate(all_deaths = sum(Deaths), all_pop = sum(Population, na.rm=TRUE), rate = all_deaths/all_pop) %>% distinct(State, Year, .keep_all = TRUE) %>% select(State, Year, all_deaths, all_pop, rate)
 ```
 
-```{r eduation}
-# education <- read_xls("Education_state.xls") 
-# education <- education[-c(1,2,3),]
-# education <- education %>% row_to_names(row_number = 1)
-# education <- education %>% select(State, `Percent of adults with less than a high school diploma, 2015-19`:`Percent of adults with a bachelor's degree or higher, 2015-19`)
-```
-
 ```{r unemployment}
 unemployment <- read_xlsx("Unemployment (1).xlsx")
 unemployment<- unemployment[-c(1,2,3),]
@@ -45,37 +38,39 @@ unemployment1 <- unemployment %>% pivot_longer(cols = c(Civilian_labor_force_201
 unemployment1 <- unemployment1 %>% mutate(Year = str_extract(unemploy_variable, "[^_]+$")) %>% mutate(Year = as.numeric(Year)) ## get year from each variable
 unemployment1 <- unemployment1 %>% mutate(unemploy_variable = gsub('.{5}$', '', unemploy_variable)) ## remove year from variable name
 unemployment1 <-unemployment1 %>% filter(!State == "US")
-unemployment1 <- unemployment1 %>% rename(State = Area_name, state_abrev = State)
+unemployment1 <- unemployment1 %>% dplyr::rename(State = Area_name, state_abrev = State)
 unemployment2 <- unemployment1 %>% pivot_wider(id_cols = c(State:Year), names_from = unemploy_variable, values_from = value)
 unemployment2 <- unemployment2 %>% mutate(State = as.factor(State)) %>%mutate_if(is.character,as.numeric)
 
 ```
+
+
 ```{r workforce}
 workforce <- read_excel("physician_total (1).xlsx", sheet = "Sheet4")
 workforce <- workforce %>% select(STATE:EMP_2019)
-workforce <- workforce %>% rename(State = STATE)
+workforce <- workforce %>% dplyr::rename(State = STATE)
 workforce <- workforce %>% pivot_longer(cols = c(EMP_2010:EMP_2019), names_to = "physician_variable")
 workforce  <- workforce  %>% mutate(Year = str_extract(physician_variable, "[^_]+$")) %>% mutate(Year = as.numeric(Year))
 workforce<- workforce %>% mutate(physician_variable = gsub('.{5}$', '', physician_variable)) ## remove year from variable name
 workforce <- workforce %>% pivot_wider(names_from = physician_variable, values_from = value)
-workforce <- workforce %>% rename(physician_total = EMP)
+workforce <- workforce %>% dplyr::rename(physician_total = EMP)
 ```
 
 ```{r injection}
 injection <- read_excel("injection.xlsx",sheet = "Sheet2")
 injection <- injection %>% select(STATE:LEGAL_2019)
-injection <- injection %>% rename(State = STATE)
+injection <- injection %>% dplyr::rename(State = STATE)
 injection <- injection %>% pivot_longer(cols = c(LEGAL_2010:LEGAL_2019), names_to = "variable")
 injection  <- injection  %>% mutate(Year = str_extract(variable, "[^_]+$")) %>% mutate(Year = as.numeric(Year))
 injection<- injection %>% mutate(variable = gsub('.{5}$', '', variable)) ## remove year from variable name
 injection <- injection %>% pivot_wider(names_from = variable, values_from = value)
-injection <- injection %>% rename(legal_injection = LEGAL)
+injection <- injection %>% dplyr::rename(legal_injection = LEGAL)
 ```
 
 
 ```{r expansion date}
 expansion_date <- read_excel("ExpansionData.xlsx")
-expansion_date <- expansion_date %>% rename(date = `Expansion date`)
+expansion_date <- expansion_date %>% dplyr::rename(date = `Expansion date`)
 expansion_date[ expansion_date == "NA" ] <- NA
 expansion_date <- expansion_date %>% mutate(date = as.numeric(date))
 expansion_date <- expansion_date %>% mutate_at(vars(date), ~as.Date(., origin = "1899-12-30"))
@@ -90,8 +85,7 @@ colnames(age_data1) <- c("name", "sex", "age", "2010", "2011", "2012", "2013", "
 age_data1 <- age_data1[!(age_data1$age ==999),] 
 age_data1["age"][age_data1["age"] == 0] <- 1.00000000000001 ## changes age 0 to 1 so that we can get the total people
 
-age_data1 <- age_data1 %>% mutate(across(contains('20'),  ## does age * # people per year so we can do the median
-                                         .fns = list(f = ~(.*age)), 
+age_data1 <- age_data1 %>% mutate(across(contains('20'), list(f = ~(.*age)), 
                                          .names = "{col}_{fn}")) 
                                   
 age_data2 <- age_data1 %>% filter(name != "United States") 
@@ -99,16 +93,16 @@ age_data2 <- age_data1 %>% filter(name != "United States")
 age_data3 <- age_data2 %>% group_by(name) %>% mutate(across(contains('20'), 
                                                             .fns = list(s = ~(sum(.))), 
                                                             .names = "{col}_{fn}")) 
-age_data4 <- age_data3 %>% distinct(name, .keep_all=TRUE) %>% select(-c(sex, age)) %>% select(name, c(`2010_s`:`2019_f_s`))
+age_data4 <- age_data3 %>% distinct(name, .keep_all=TRUE) %>% select(-c(sex, age)) %>% select(name, c(`2010_f`:`2019_f_s`))
 
 patterns <- unique(substr(names(age_data4), 1, 4))  # store patterns in a vector
 patterns <- patterns[-1]
-new <- data.frame(sapply(patterns, function(x) age_data4[,grep(x, names(age_data4))][2] / age_data4[,grep(x, names(age_data4))][1]))  # loop through
+new <- data.frame(sapply(patterns, function(x) age_data4[,grep(x, names(age_data4))][3] / age_data4[,grep(x, names(age_data4))][2]))  # loop through
 final <- new %>% cbind(age_data4$name)
 colnames(final) <- c("2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "State")
 final <- final %>% select(State, c(`2010`:`2019`))
 final <- final %>% pivot_longer(cols = c(`2010`:`2019`), names_to = "Year")
-final <- final %>% rename("Mean_Age" = value)
+final <- final %>% dplyr::rename("Mean_Age" = value)
 final <- final %>% mutate(Year = as.numeric(Year))
 ```
 
@@ -133,6 +127,18 @@ other_deaths <- other_deaths  %>% mutate(Year = as.numeric(Year))
 ```
 
 
+```{r education}
+filenames <- list.files(paste0(dir, "/Education_Attainment_final_data"), pattern="*.csv", full.names=TRUE)
+
+ldf <- lapply(filenames, read.csv, header=TRUE)
+ldf <- ldf %>% reduce(rbind)
+ldf <- ldf %>% filter(!Geographic.Area.Name == "")
+ldf <- ldf %>% arrange(Geographic.Area.Name) %>% mutate(Year = rep_len(2010:2019, length.out = length(Geographic.Area.Name)))
+ldf <- ldf %>% dplyr::rename(State = Geographic.Area.Name)
+
+```
+
+
 ## Concat data
 ```{r concat data}
 
@@ -145,7 +151,7 @@ final_data <- final_data %>% mutate(Year = year(as.Date(as.character(Year), form
 ## Add physician data
 
 final_data <- final_data %>% full_join(workforce)
-# final_data <- final_data %>% mutate(physician_per_pop = physician_total/all_pop)
+final_data <- final_data %>% mutate(physician_per_pop = physician_total/all_pop)
 
 #Add SEP data
 final_data <- final_data %>% full_join(injection)
@@ -158,9 +164,12 @@ final_data <- final_data %>% left_join(spending, by= c("State", "Year") )
 
 ## other deaths
 final_data <- final_data %>% left_join(other_deaths, by= c("State", "Year") )
-# final_data <- final_data %>% mutate(other_deaths_perpop = other_deaths/all_pop)
+final_data <- final_data %>% mutate(other_deaths_perpop = other_deaths/all_pop)
 
 final_data <- final_data %>% select(-c(Median_Household_Income, Med_HH_Income_Percent_of_State_Total))
+
+## education data 
+final_data <- final_data %>% left_join(ldf, by= c("State", "Year"))
 ```
 
 ```{r groupdata}
@@ -176,7 +185,7 @@ final_data <- final_data %>% mutate(expan_group = case_when(
   date < as.Date("2018-01-01") ~ "expansion",
   date > as.Date("2018-01-01") ~ "no_expansion"
 ))
-final_data <- final_data %>% filter(!State %in% c("California", "Connecticut", "District of Columbia", "Minnestoa", "Washington", "Colorado"))
+final_data <- final_data %>% filter(!State %in% c("California", "Connecticut", "District of Columbia", "Minnesota", "Washington", "Colorado"))
 final_data <- final_data %>% mutate(expan_group = as.factor(expan_group))
 final_data <- final_data %>% filter(!is.na(Year))
 ```
@@ -184,20 +193,26 @@ final_data <- final_data %>% filter(!is.na(Year))
 ## standardize data
 
 ```{r}
-final_data<-final_data %>% mutate(difference = round(interval(as.Date(as.character(Year), format = "%Y"),as.Date(date) ) /years(1)))
-final_data <- final_data %>% filter(!(difference >3 | difference < -3) | is.na(difference))
-final_data <- final_data %>% mutate(difference = difference*-1)
+final_data2<-subset(final_data, expan_group == "expansion") %>% mutate(difference = as.numeric(format(as.Date(as.character(Year), format = "%Y"), format = "%Y")) - as.numeric(format(date, format = "%Y")))
+final_data2 <- final_data2 %>% filter(!(difference >3 | difference < -3) | is.na(difference))
+#final_data <- final_data %>% mutate(difference = difference*-1)
 
 ## for no expansion --> y=0 is the mean of the expansion group at 2014. 
 test <- final_data %>% group_by(expan_group) %>% summarize(mean_date = mean(date, na.rm=TRUE))
 
-final_data1 <- subset(final_data, is.na(date)) %>% mutate(difference = round(interval(as.Date(as.character(Year), format = "%Y"),as.Date(as.character(2014), format = "%Y") ) /years(1))) 
+final_data1 <- subset(final_data, expan_group == "no_expansion") %>% mutate(difference =as.numeric(format(as.Date(as.character(Year), format = "%Y"), format = "%Y")) - 2014)
 final_data1 <- final_data1 %>% filter(!(difference >3 | difference < -3) | is.na(difference))
-final_data1 <- final_data1 %>% mutate(difference = difference*-1)
+#final_data1 <- final_data1 %>% mutate(difference = difference*-1)
 
-final_data <- final_data %>% filter(!is.na(date)) %>% rbind(final_data1)
+final_data <- final_data2 %>% filter(!is.na(date)) %>% rbind(final_data1)
 ```
 
+```{r education change}
+
+final_data <- final_data %>% mutate(higher_hs = (sum(Some.college.or.associate.s.degree+Bachelor.s.degree.or.higher))/all_pop)
+
+final_data <- final_data %>% mutate(Unemployment_rate = Unemployed / Civilian_labor_force)
+```
 
 
 
@@ -212,34 +227,123 @@ final_data_grouped <- final_data_grouped %>% mutate(Unemployment_rate  = Unemplo
                                                     other_deaths_perpop = other_deaths / all_pop,
                                                     phyisican_perpop = physician_total/all_pop,
                                                     Mean_Age = Mean_Age /count,
-                                                    spending_ave_pergroup = unadjmedamt / count) %>% rename(death_rate= rate)
+                                                    spending_ave_pergroup = unadjmedamt / count,
+                                                    injection_pergroup = legal_injection / count) %>% rename(death_rate= rate)
                                           
 ```
 
 
 ## Let's look at plots
 ```{r initial plots}
-final_data_grouped %>% ggplot(aes(difference, death_rate, color=expan_group))+stat_summary(geom = 'line') +
+final_data%>% ggplot(aes(difference, rate, color=expan_group))+stat_summary(geom = 'line') +
     #geom_vline(xintercept = 1994) +
   scale_x_continuous(breaks =seq(-3, 3,1))+
-    theme_minimal()
+    theme_bw()
 #ggsave("initial_plot.png")
 ```
 
 ## organize data for d-d 
 ```{r}
 # dummy for time
-final_data_grouped <- final_data_grouped %>% mutate(time = ifelse(difference >=0, 1, 0 ))
-final_data_grouped <- final_data_grouped %>% mutate(treated = ifelse(expan_group == "expansion", 1, 0))
-final_data_grouped <- final_data_grouped %>% mutate(did = time*treated)
+# final_data_grouped <- final_data_grouped %>% mutate(time = ifelse(difference >=0, 1, 0 ))
+# final_data_grouped <- final_data_grouped %>% mutate(treated = ifelse(expan_group == "expansion", 1, 0))
+# final_data_grouped <- final_data_grouped %>% mutate(did = time*treated)
+
+final_data <- final_data %>%  mutate(time = ifelse(difference >=0, 1, 0 ))
+final_data <- final_data %>%  mutate(treated = ifelse(expan_group == "expansion", 1, 0))
 
 
 ```
 
+
 ## modeling
+
 ```{r}
-didreg <- lm(death_rate ~ time*treated, data = final_data_grouped)
-didreg1 = lm(death_rate ~ phyisican_perpop + spending_ave_pergroup + treated*time, data = final_data_grouped)
-summary(didreg1)
+library(plm)
+fixed <- plm(rate ~ time*treated, index = c("State", "Year"), model = "within", data = final_data)
+summary(fixed)
+
+random <- plm(rate ~ time*treated, index = c("State", "Year"), model = "random", data = final_data)
+summary(random)
+
+phtest(random, fixed)
+```
+
+```{r re model}
+random1 <- plm(rate ~ time*treated + physician_per_pop + higher_hs+Unemployment_rate +factor(legal_injection), index = c("State", "Year"), model = "random", data = final_data)
+summary(random1)
+
+fixed1 <- plm(rate ~ time*treated + physician_per_pop + higher_hs +Unemployment_rate +factor(legal_injection), index = c("State", "Year"), model = "within", data = final_data)
+summary(fixed1)
+
+library(stargazer)
+stargazer(fixed1, random1,
+                     title="Fixed Effects Vs. Random Effects",
+                     header=FALSE, 
+                     type="html", # "html" or "latex" (in index.Rmd) 
+                     keep.stat="n",  # what statistics to print
+                     omit.table.layout="n",
+                     digits=6, 
+                     #  single.row=TRUE,
+                     intercept.bottom=FALSE, #moves the intercept coef to top
+                     column.labels=c("Fixed","Random"),
+                     dep.var.labels.include = FALSE,
+                     model.numbers = FALSE,
+                     dep.var.caption="Dependent variable: Opioid Death Rate",
+                     model.names=FALSE,
+                     star.char = c("+", "*", "**", "***"), star.cutoffs = c(.1, .05, .01, .001),
+                      out = "did_eqns.htm")
+
+```
+
+
+```{r hauseman test}
+phtest(random1, fixed1)
+
+```
+
+```{r normal errors}
+resid_fixed <- as.data.frame(resid(fixed1)) 
+resid_random <- as.data.frame(resid(random1)) 
+
+plot1 <- resid_fixed %>% ggplot(aes(`resid(fixed1)`)) + geom_histogram() + ggtitle("Fixed Effects Model") +xlab('Residuals') +theme_bw()
+plot2 <- resid_random %>% ggplot(aes(`resid(random1)`)) + geom_histogram()+ ggtitle("Random Effects Model")+xlab('Residuals')+theme_bw()
+library(cowplot)
+plot3 <-plot_grid(plot1, plot2, labels = c('A', 'B'), align = "hv")
+save_plot(filename = "resid_histograms.png", plot = plot3)
+```
+
+
+## hausman for endogeneity
+```{r}
+final_data <- final_data %>% mutate(did = time*treated)
+fixed_resid <- resid(fixed1)
+
+library(ivreg)
+
+hausman <- ivreg(rate ~ time*treated + physician_per_pop + higher_hs +factor(State) |time+treated+higher_hs +physician_per_pop+Unemployment_rate, data = final_data)
+
+```
+
+```{r collinearity}
+library(GGally)
+final_data5 <- final_data %>% ungroup() %>% select(-State) %>% select(rate,physician_per_pop, higher_hs, Unemployment_rate)
+final_data5 <- final_data5 %>% rename(`Death Rate` = rate, `Physician Per Pop` = physician_per_pop,
+                                      `% Higher HS` = higher_hs, `Unemployment Rate` = Unemployment_rate)
+cor(final_data5, use = "complete.obs")
+ggpairs(final_data5, title="Correlations between Variables in the Model") +theme_bw()
+ggsave("correlation plot.png")
+
+```
+
+
+
+```{r summary table}
+library(gtsummary)
+
+final_data_fortbl <- final_data %>% ungroup() %>% select(physician_per_pop, higher_hs, Unemployment_rate, legal_injection, expan_group, rate)
+
+tbl_summary(final_data_fortbl, by = expan_group, missing = "no") %>% modify_header(label = "**Variable**")%>% as_flex_table() %>%
+  flextable::save_as_docx(path ="summarytable.docx")
 ```
 
