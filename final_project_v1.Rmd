@@ -238,8 +238,13 @@ final_data_grouped <- final_data_grouped %>% mutate(Unemployment_rate  = Unemplo
 final_data%>% ggplot(aes(difference, rate, color=expan_group))+stat_summary(geom = 'line') +
     #geom_vline(xintercept = 1994) +
   scale_x_continuous(breaks =seq(-3, 3,1))+
+  ggtitle("Opioid Death Rate Before and After Expansion")+
+  xlab("Time")+
+  ylab("Death Rate (By population)")+
+  labs(color = "Expansion Group")+
+  geom_vline(xintercept = 0, color = "black", linetype = "dashed")+
     theme_bw()
-#ggsave("initial_plot.png")
+ggsave("initial_plot.png", height = 8, width = 8)
 ```
 
 ## organize data for d-d 
@@ -276,19 +281,20 @@ summary(random1)
 fixed1 <- plm(rate ~ time*treated + physician_per_pop + higher_hs +Unemployment_rate +factor(legal_injection), index = c("State", "Year"), model = "within", data = final_data)
 summary(fixed1)
 
+no_effects <- lm(rate ~ time*treated + physician_per_pop + higher_hs +Unemployment_rate, data = final_data)
+
 library(stargazer)
-stargazer(fixed1, random1,
+stargazer(no_effects, fixed1, random1,
                      title="Fixed Effects Vs. Random Effects",
                      header=FALSE, 
                      type="html", # "html" or "latex" (in index.Rmd) 
-                     keep.stat="n",  # what statistics to print
                      omit.table.layout="n",
                      digits=6, 
-                     #  single.row=TRUE,
+                     single.row=TRUE,
                      intercept.bottom=FALSE, #moves the intercept coef to top
-                     column.labels=c("Fixed","Random"),
+                     column.labels=c("No effects", "Fixed","Random"),
                      dep.var.labels.include = FALSE,
-                     model.numbers = FALSE,
+                     model.numbers = TRUE,
                      dep.var.caption="Dependent variable: Opioid Death Rate",
                      model.names=FALSE,
                      star.char = c("+", "*", "**", "***"), star.cutoffs = c(.1, .05, .01, .001),
@@ -296,6 +302,27 @@ stargazer(fixed1, random1,
 
 ```
 
+```{r nounemployment}
+fixed2 <- plm(rate ~ time*treated + physician_per_pop + higher_hs +factor(legal_injection), index = c("State", "Year"), model = "within", data = final_data)
+summary(fixed1)
+
+
+library(stargazer)
+stargazer(fixed1, fixed2,
+                     title="Fixed Effects Vs. Random Effects",
+                     header=FALSE, 
+                     type="html", # "html" or "latex" (in index.Rmd) 
+                     # omit.table.layout="n",
+                     digits=6, 
+                     single.row=TRUE,
+                     intercept.bottom=FALSE, #moves the intercept coef to top
+                     column.labels=c("Unemployment", "No Unemployment"),                  
+                      model.numbers = TRUE,
+                     dep.var.caption="Dependent variable: Opioid Death Rate",
+                     model.names=FALSE,
+                     star.char = c("+", "*", "**", "***"), star.cutoffs = c(.1, .05, .01, .001),
+                      out = "did_eqns1.htm")
+```
 
 ```{r hauseman test}
 phtest(random1, fixed1)
@@ -306,8 +333,8 @@ phtest(random1, fixed1)
 resid_fixed <- as.data.frame(resid(fixed1)) 
 resid_random <- as.data.frame(resid(random1)) 
 
-plot1 <- resid_fixed %>% ggplot(aes(`resid(fixed1)`)) + geom_histogram() + ggtitle("Fixed Effects Model") +xlab('Residuals') +theme_bw()
-plot2 <- resid_random %>% ggplot(aes(`resid(random1)`)) + geom_histogram()+ ggtitle("Random Effects Model")+xlab('Residuals')+theme_bw()
+plot1 <- resid_fixed %>% ggplot(aes(`resid(fixed1)`)) + geom_histogram() + ggtitle("Fixed Effects Model") +xlab('Residuals') +theme_bw()+theme(axis.text.x = element_text(angle = 45, hjust = 1, size=8))
+plot2 <- resid_random %>% ggplot(aes(`resid(random1)`)) + geom_histogram()+ ggtitle("Random Effects Model")+xlab('Residuals')+theme_bw()+theme(axis.text.x = element_text(angle = 45, hjust = 1, size=8))
 library(cowplot)
 plot3 <-plot_grid(plot1, plot2, labels = c('A', 'B'), align = "hv")
 save_plot(filename = "resid_histograms.png", plot = plot3)
@@ -331,7 +358,7 @@ final_data5 <- final_data %>% ungroup() %>% select(-State) %>% select(rate,physi
 final_data5 <- final_data5 %>% rename(`Death Rate` = rate, `Physician Per Pop` = physician_per_pop,
                                       `% Higher HS` = higher_hs, `Unemployment Rate` = Unemployment_rate)
 cor(final_data5, use = "complete.obs")
-ggpairs(final_data5, title="Correlations between Variables in the Model") +theme_bw()
+final_data5 %>% ggpairs(title="Correlations between Variables in the Model") + theme_bw()+ theme(axis.text.x = element_text(angle = 45, hjust = 1, size=8))
 ggsave("correlation plot.png")
 
 ```
@@ -345,5 +372,28 @@ final_data_fortbl <- final_data %>% ungroup() %>% select(physician_per_pop, high
 
 tbl_summary(final_data_fortbl, by = expan_group, missing = "no") %>% modify_header(label = "**Variable**")%>% as_flex_table() %>%
   flextable::save_as_docx(path ="summarytable.docx")
+```
+
+
+```{r other tests}
+library(tseries)
+jarque.bera.test(resid_fixed$`resid(fixed1)`)
+
+library(lmtest)
+bptest(fixed1)
+```
+
+```{r residual vs. fitted graph}
+fitted <- as.data.frame(predict(fixed1))
+
+residvfitted <- cbind(fitted,resid_fixed)
+
+residvfitted %>% ggplot(aes(`predict(fixed1)`, `resid(fixed1)`)) + geom_point() + ylab("Residuals") +xlab("Fitted")+  geom_hline(yintercept = 0, color = "red", linetype = "dashed")+ggtitle("Redsiduals vs. Fitted")
+ggsave("residvfit.png")
+
+```
+```{r confidence intervals}
+confint(fixed1)
+confint(fixed2)
 ```
 
