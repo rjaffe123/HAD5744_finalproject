@@ -1,0 +1,242 @@
+          user 
+"rachaeljaffe" 
+-/                                                                                                           -/                                                                                                           -/                                                                                                           -/                                                                                                           -/                                                                                                           -/                                                                                                           -/                                                                                                           -/                                                                                                           Oneway (individual) effect Within Model
+
+Call:
+plm(formula = rate ~ time * treated, data = final_data, model = "within", 
+    index = c("State", "Year"))
+
+Unbalanced Panel: n = 45, T = 5-7, N = 313
+
+Residuals:
+       Min.     1st Qu.      Median     3rd Qu.        Max. 
+-7.4296e-05 -2.0234e-05 -3.3247e-06  1.5680e-05  1.4244e-04 
+
+Coefficients:
+               Estimate Std. Error t-value  Pr(>|t|)    
+time         3.4723e-05 6.3549e-06  5.4640  1.07e-07 ***
+time:treated 2.9039e-05 8.3973e-06  3.4581 0.0006333 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Total Sum of Squares:    5.6666e-07
+Residual Sum of Squares: 3.499e-07
+R-Squared:      0.38253
+Adj. R-Squared: 0.27575
+F-statistic: 82.3939 on 2 and 266 DF, p-value: < 2.22e-16
+Oneway (individual) effect Random Effect Model 
+   (Swamy-Arora's transformation)
+
+Call:
+plm(formula = rate ~ time * treated, data = final_data, model = "random", 
+    index = c("State", "Year"))
+
+Unbalanced Panel: n = 45, T = 5-7, N = 313
+
+Effects:
+                    var   std.dev share
+idiosyncratic 1.315e-09 3.627e-05 0.242
+individual    4.131e-09 6.427e-05 0.758
+theta:
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+ 0.7553  0.7914  0.7914  0.7908  0.7914  0.7914 
+
+Residuals:
+     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+-6.88e-05 -2.05e-05 -4.08e-06  4.20e-08  1.40e-05  1.74e-04 
+
+Coefficients:
+               Estimate Std. Error z-value  Pr(>|z|)    
+(Intercept)  1.1855e-04 1.5505e-05  7.6457 2.079e-14 ***
+time         3.4723e-05 6.3539e-06  5.4649 4.633e-08 ***
+treated      3.0081e-05 2.0413e-05  1.4736 0.1405767    
+time:treated 2.8940e-05 8.3953e-06  3.4472 0.0005665 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Total Sum of Squares:    6.2979e-07
+Residual Sum of Squares: 4.0632e-07
+R-Squared:      0.35483
+Adj. R-Squared: 0.34856
+Chisq: 170.128 on 3 DF, p-value: < 2.22e-16
+
+	Hausman Test
+
+data:  rate ~ time * treated
+chisq = 0.47811, df = 2, p-value = 0.7874
+alternative hypothesis: one model is inconsistent
+
+Oneway (individual) effect Random Effect Model 
+   (Swamy-Arora's transformation)
+
+Call:
+plm(formula = rate ~ time * treated + physician_per_pop + higher_hs + 
+    Unemployment_rate + factor(legal_injection), data = final_data, 
+    model = "random", index = c("State", "Year"))
+
+Unbalanced Panel: n = 45, T = 5-7, N = 313
+
+Effects:
+                    var   std.dev share
+idiosyncratic 1.078e-09 3.283e-05 0.305
+individual    2.460e-09 4.960e-05 0.695
+theta:
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+ 0.7161  0.7573  0.7573  0.7566  0.7573  0.7573 
+
+Residuals:
+     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+-7.71e-05 -2.28e-05 -3.86e-06  2.50e-08  1.26e-05  1.46e-04 
+
+Coefficients:
+                            Estimate  Std. Error z-value  Pr(>|z|)    
+(Intercept)               2.0259e-04  3.1481e-05  6.4353 1.233e-10 ***
+time                      1.2882e-05  7.9481e-06  1.6207 0.1050735    
+treated                   1.9458e-05  1.7092e-05  1.1384 0.2549399    
+physician_per_pop         4.2251e-03  1.4283e-03  2.9582 0.0030949 ** 
+higher_hs                -3.0601e-04  9.4724e-05 -3.2306 0.0012354 ** 
+Unemployment_rate        -8.2514e-04  2.2129e-04 -3.7287 0.0001925 ***
+factor(legal_injection)1  4.1191e-05  7.8716e-06  5.2329 1.669e-07 ***
+time:treated              1.7275e-05  8.2630e-06  2.0907 0.0365570 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Total Sum of Squares:    6.5213e-07
+Residual Sum of Squares: 3.5779e-07
+R-Squared:      0.45135
+Adj. R-Squared: 0.43876
+Chisq: 251.196 on 7 DF, p-value: < 2.22e-16
+Oneway (individual) effect Within Model
+
+Call:
+plm(formula = rate ~ time * treated + physician_per_pop + higher_hs + 
+    Unemployment_rate + factor(legal_injection), data = final_data, 
+    model = "within", index = c("State", "Year"))
+
+Unbalanced Panel: n = 45, T = 5-7, N = 313
+
+Residuals:
+       Min.     1st Qu.      Median     3rd Qu.        Max. 
+-7.1425e-05 -1.6411e-05 -3.5886e-06  1.4126e-05  1.2186e-04 
+
+Coefficients:
+                            Estimate  Std. Error t-value  Pr(>|t|)    
+time                      4.7954e-06  7.8343e-06  0.6121   0.54100    
+physician_per_pop         2.4866e-03  2.4341e-03  1.0216   0.30793    
+higher_hs                -1.4217e-04  1.5799e-04 -0.8998   0.36903    
+Unemployment_rate        -1.1403e-03  2.2546e-04 -5.0576 7.992e-07 ***
+factor(legal_injection)1  3.7961e-05  8.0571e-06  4.7115 3.994e-06 ***
+time:treated              2.0197e-05  7.9660e-06  2.5354   0.01181 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Total Sum of Squares:    5.6666e-07
+Residual Sum of Squares: 2.8244e-07
+R-Squared:      0.50157
+Adj. R-Squared: 0.40645
+F-statistic: 43.9413 on 6 and 262 DF, p-value: < 2.22e-16
+
+<table style="text-align:center"><caption><strong>Fixed Effects Vs. Random Effects</strong></caption>
+<tr><td colspan="4" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left"></td><td colspan="3">Dependent variable: Opioid Death Rate</td></tr>
+<tr><td></td><td colspan="3" style="border-bottom: 1px solid black"></td></tr>
+<tr><td style="text-align:left"></td><td>No effects</td><td>Fixed</td><td>Random</td></tr>
+<tr><td style="text-align:left"></td><td>(1)</td><td>(2)</td><td>(3)</td></tr>
+<tr><td colspan="4" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left">Constant</td><td>0.000204<sup>***</sup> (0.000038)</td><td></td><td>0.000203<sup>***</sup> (0.000031)</td></tr>
+<tr><td style="text-align:left">time</td><td>0.000050<sup>***</sup> (0.000013)</td><td>0.000005 (0.000008)</td><td>0.000013 (0.000008)</td></tr>
+<tr><td style="text-align:left">treated</td><td>0.000038<sup>**</sup> (0.000012)</td><td></td><td>0.000019 (0.000017)</td></tr>
+<tr><td style="text-align:left">physician_per_pop</td><td>0.004097<sup>***</sup> (0.000833)</td><td>0.002487 (0.002434)</td><td>0.004225<sup>**</sup> (0.001428)</td></tr>
+<tr><td style="text-align:left">higher_hs</td><td>-0.000487<sup>***</sup> (0.000060)</td><td>-0.000142 (0.000158)</td><td>-0.000306<sup>**</sup> (0.000095)</td></tr>
+<tr><td style="text-align:left">Unemployment_rate</td><td>0.000512<sup>+</sup> (0.000268)</td><td>-0.001140<sup>***</sup> (0.000225)</td><td>-0.000825<sup>***</sup> (0.000221)</td></tr>
+<tr><td style="text-align:left">factor(legal_injection)1</td><td></td><td>0.000038<sup>***</sup> (0.000008)</td><td>0.000041<sup>***</sup> (0.000008)</td></tr>
+<tr><td style="text-align:left">time:treated</td><td>0.000020 (0.000015)</td><td>0.000020<sup>*</sup> (0.000008)</td><td>0.000017<sup>*</sup> (0.000008)</td></tr>
+<tr><td colspan="4" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left">Observations</td><td>313</td><td>313</td><td>313</td></tr>
+<tr><td style="text-align:left">R<sup>2</sup></td><td>0.354847</td><td>0.501568</td><td>0.451354</td></tr>
+<tr><td style="text-align:left">Adjusted R<sup>2</sup></td><td>0.342197</td><td>0.406447</td><td>0.438762</td></tr>
+<tr><td style="text-align:left">Residual Std. Error</td><td>0.000065 (df = 306)</td><td></td><td></td></tr>
+<tr><td style="text-align:left">F Statistic</td><td>28.051010<sup>***</sup> (df = 6; 306)</td><td>43.941320<sup>***</sup> (df = 6; 262)</td><td>251.196100<sup>***</sup></td></tr>
+<tr><td colspan="4" style="border-bottom: 1px solid black"></td></tr></table>
+Oneway (individual) effect Within Model
+
+Call:
+plm(formula = rate ~ time * treated + physician_per_pop + higher_hs + 
+    Unemployment_rate + factor(legal_injection), data = final_data, 
+    model = "within", index = c("State", "Year"))
+
+Unbalanced Panel: n = 45, T = 5-7, N = 313
+
+Residuals:
+       Min.     1st Qu.      Median     3rd Qu.        Max. 
+-7.1425e-05 -1.6411e-05 -3.5886e-06  1.4126e-05  1.2186e-04 
+
+Coefficients:
+                            Estimate  Std. Error t-value  Pr(>|t|)    
+time                      4.7954e-06  7.8343e-06  0.6121   0.54100    
+physician_per_pop         2.4866e-03  2.4341e-03  1.0216   0.30793    
+higher_hs                -1.4217e-04  1.5799e-04 -0.8998   0.36903    
+Unemployment_rate        -1.1403e-03  2.2546e-04 -5.0576 7.992e-07 ***
+factor(legal_injection)1  3.7961e-05  8.0571e-06  4.7115 3.994e-06 ***
+time:treated              2.0197e-05  7.9660e-06  2.5354   0.01181 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Total Sum of Squares:    5.6666e-07
+Residual Sum of Squares: 2.8244e-07
+R-Squared:      0.50157
+Adj. R-Squared: 0.40645
+F-statistic: 43.9413 on 6 and 262 DF, p-value: < 2.22e-16
+
+<table style="text-align:center"><caption><strong>Fixed Effects Vs. Random Effects</strong></caption>
+<tr><td colspan="3" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left"></td><td colspan="2">Dependent variable: Opioid Death Rate</td></tr>
+<tr><td></td><td colspan="2" style="border-bottom: 1px solid black"></td></tr>
+<tr><td style="text-align:left"></td><td colspan="2">rate</td></tr>
+<tr><td style="text-align:left"></td><td>Unemployment</td><td>No Unemployment</td></tr>
+<tr><td style="text-align:left"></td><td>(1)</td><td>(2)</td></tr>
+<tr><td colspan="3" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left">time</td><td>0.000005 (0.000008)</td><td>0.000031<sup>***</sup> (0.000006)</td></tr>
+<tr><td style="text-align:left">physician_per_pop</td><td>0.002487 (0.002434)</td><td>0.003144 (0.002542)</td></tr>
+<tr><td style="text-align:left">higher_hs</td><td>-0.000142 (0.000158)</td><td>-0.000137 (0.000165)</td></tr>
+<tr><td style="text-align:left">Unemployment_rate</td><td>-0.001140<sup>***</sup> (0.000225)</td><td></td></tr>
+<tr><td style="text-align:left">factor(legal_injection)1</td><td>0.000038<sup>***</sup> (0.000008)</td><td>0.000045<sup>***</sup> (0.000008)</td></tr>
+<tr><td style="text-align:left">time:treated</td><td>0.000020<sup>*</sup> (0.000008)</td><td>0.000018<sup>*</sup> (0.000008)</td></tr>
+<tr><td colspan="3" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left">Observations</td><td>313</td><td>313</td></tr>
+<tr><td style="text-align:left">R<sup>2</sup></td><td>0.501568</td><td>0.452906</td></tr>
+<tr><td style="text-align:left">Adjusted R<sup>2</sup></td><td>0.406447</td><td>0.350976</td></tr>
+<tr><td style="text-align:left">F Statistic</td><td>43.941320<sup>***</sup> (df = 6; 262)</td><td>43.544320<sup>***</sup> (df = 5; 263)</td></tr>
+<tr><td colspan="3" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left"><em>Note:</em></td><td colspan="2" style="text-align:right"><sup>*</sup>p<0.1; <sup>**</sup>p<0.05; <sup>***</sup>p<0.01</td></tr>
+</table>
+
+	Hausman Test
+
+data:  rate ~ time * treated + physician_per_pop + higher_hs + Unemployment_rate +  ...
+chisq = 52.443, df = 6, p-value = 1.519e-09
+alternative hypothesis: one model is inconsistent
+
+                   Death Rate Physician Per Pop % Higher HS Unemployment Rate
+Death Rate         1.00000000       -0.02870373  -0.3011338       -0.02235778
+Physician Per Pop -0.02870373        1.00000000   0.6731117       -0.34954583
+% Higher HS       -0.30113377        0.67311166   1.0000000       -0.31044272
+Unemployment Rate -0.02235778       -0.34954583  -0.3104427        1.00000000
+
+	Jarque Bera Test
+
+data:  resid_fixed$`resid(fixed1)`
+X-squared = 128.66, df = 2, p-value < 2.2e-16
+
+
+	studentized Breusch-Pagan test
+
+data:  fixed1
+BP = 55.45, df = 7, p-value = 1.214e-09
+
+                                 2.5 %        97.5 %
+time                     -1.055948e-05  2.015030e-05
+physician_per_pop        -2.284201e-03  7.257446e-03
+higher_hs                -4.518205e-04  1.674881e-04
+Unemployment_rate        -1.582153e-03 -6.983762e-04
+factor(legal_injection)1  2.216960e-05  5.375295e-05
+time:treated              4.583842e-06  3.581011e-05
+                                 2.5 %       97.5 %
+time                      1.959595e-05 4.334213e-05
+physician_per_pop        -1.837979e-03 8.125351e-03
+higher_hs                -4.605665e-04 1.870203e-04
+factor(legal_injection)1  2.910282e-05 6.158268e-05
+time:treated              1.688176e-06 3.429198e-05
