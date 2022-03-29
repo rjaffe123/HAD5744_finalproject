@@ -1,0 +1,124 @@
+---
+title: "Final Project - HAD5746"
+output: pdf_document
+date: '2022-03-24'
+author: "Rachael Jaffe"
+---
+
+```{r echo = FALSE, message=FALSE}
+library(tidyverse)
+library(readxl)
+library(janitor)
+library(lubridate) 
+library(purrr)
+library(stringr)
+library(plm)
+library(stargazer)
+
+
+```
+
+## Introduction
+
+We are examining the relationship between opioid related deaths and medicaid spending. Our data is from 2010 - 2019 at the state level. We will use a linear mixed model, considering both fixed and random effects for panel data. 
+
+#### Load in Data
+```{r}
+data <- read.csv("final_data_5746.csv")
+
+#standardize rate
+
+data <- data %>% mutate(rate_1000 = rate *1000)
+data <- data %>% mutate(rate_10000 = rate*10000)
+```
+
+
+## Initial Data Exploration
+
+```{r}
+glimpse(data)
+```
+```{r}
+data <- data %>% filter(Year != 2019)
+data_panel <- pdata.frame(data, index=c("State", "Year"))
+pdim(data_panel)
+
+
+```
+
+
+## Initial Analysis
+
+```{r}
+within_model_fixed <- plm(rate ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "within")
+random_model <- plm(rate ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "random")
+pooled_model <- plm(rate ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "pooling")
+
+within_model_fixed_1000 <- plm(rate_1000 ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "within")
+random_model_1000 <- plm(rate_1000 ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "random")
+pooled_model_1000 <- plm(rate_1000 ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "pooling")
+
+within_model_fixed_10000 <- plm(rate_10000 ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "within")
+random_model_10000 <- plm(rate_1000 ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "random")
+pooled_model_10000 <- plm(rate_1000 ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "pooling")
+```
+
+
+```{r, results = "asis"}
+
+# replace_numbers = function(x, cutoff=4, digits=3, scipen=-7) {
+#   ifelse(nchar(x) < cutoff, x, prettyNum(as.numeric(x), digits=digits, scientific=scipen))
+# }
+#replace_numbers = function(x){ (as.numeric(formatC(x)))}
+replace_numbers <- function(x) (x * 100000)
+
+table1 <- stargazer(pooled_model, within_model_fixed, random_model, apply.coef = replace_numbers, apply.se = replace_numbers, dep.var.labels = "", dep.var.caption = "\\emph{Dependent Variable:} Opioid Related Death Rate", covariate.labels = c("Medicaid Spending Rate (per 1000)", "Prescription Rate (per 1000)", "Mean Age", "Legal Injection Site Exists",
+                               "Physician Rate (per Population)", "Unemployment Rate"), column.labels = c("Pooled", "Fixed", "Random"), title = "Model Comparisons", notes = "\\emph{All coefficients and standard errors multipled by 100,000.}")
+
+table2 <- stargazer(pooled_model_1000, within_model_fixed_1000, random_model_1000, dep.var.labels = "", dep.var.caption = "\\emph{Dependent Variable:} Opioid Related Death Rate", covariate.labels = c("Medicaid Spending Rate (per 1000)", "Prescription Rate (per 1000)", "Mean Age", "Legal Injection Site Exists",
+                               "Physician Rate (per Population)", "Unemployment Rate"), column.labels = c("Pooled", "Fixed", "Random"), title = "Model Comparisons", notes = "1000")
+
+table3 <- stargazer(pooled_model_10000, within_model_fixed_10000, random_model_10000, dep.var.labels = "", dep.var.caption = "\\emph{Dependent Variable:} Opioid Related Death Rate", covariate.labels = c("Medicaid Spending Rate (per 1000)", "Prescription Rate (per 1000)", "Mean Age", "Legal Injection Site Exists",
+                               "Physician Rate (per Population)", "Unemployment Rate"), column.labels = c("Pooled", "Fixed", "Random"), title = "Model Comparisons", notes = "10000")
+
+
+```
+
+```{r}
+# fixed effects v pooled:
+pFtest(within_model_fixed, pooled_model) ## pvalue is small <- fixed effects are needed
+
+## significance of individual effects:
+plmtest(pooled_model, effect="individual") ## pvalue is small <- heterogeneity among individuals may be significant
+
+## fixed v random 
+phtest(within_model_fixed, random_model) ## pvalue is large <- random effects are necessary
+```
+```{r}
+ranef(random_model)
+```
+
+
+
+### OLS Assumptions
+
+```{r}
+data_assumptions <- data.frame(residuals = residuals(random_model), fitted = predict(random_model))
+
+# residuals vs observed --> assumption of linearity
+
+#ggplot()+geom_point(aes(x = data_assumptions$residuals, y = data_panel$rate))
+
+# residuals vs fitted --> homogeneity of variance (heteroskedasticity)
+# library(sandwich)
+# sandwich::coeftest(random_model) ## ??
+
+data_assumptions %>% ggplot(aes(residuals, fitted)) +geom_point()
+
+# histogram of residuals --> normality of residuals
+data_assumptions %>% ggplot(aes(residuals)) +geom_histogram()
+
+## test for serial correlation
+
+```
+
