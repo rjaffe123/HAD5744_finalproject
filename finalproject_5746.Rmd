@@ -14,8 +14,10 @@ library(purrr)
 library(stringr)
 library(plm)
 library(stargazer)
-
-
+library(kableExtra)
+library(ggthemes)
+library(cowplot)
+library(broom)
 ```
 
 ## Introduction
@@ -26,23 +28,92 @@ We are examining the relationship between opioid related deaths and medicaid spe
 ```{r}
 data <- read.csv("final_data_5746.csv")
 
+## remove 2019 (because missing data)
+
+data <- data %>% filter(Year !=2019)
+
 #standardize rate
 
 data <- data %>% mutate(rate_1000 = rate *1000)
 data <- data %>% mutate(rate_10000 = rate*10000)
+data <- data %>% mutate(rate_100000 = rate*100000)
+
 ```
 
 
 ## Initial Data Exploration
 
 ```{r}
-glimpse(data)
+plot1<-data %>% ggplot(aes(x = percap_adjmedamt, y = rate_100000, color = State))+geom_point()+xlab("Medicaid Spending (per 1000)") +ylab("Death Rate per 100,0000") +theme_calc()
+
+plot2<-data %>% ggplot(aes(x = percap_adjmedamt, y = log(rate_100000), color = State))+geom_point() +xlab("Medicaid Spending (per 1000)") +ylab("Log of Death Rate per 100,0000") +theme_calc()
+
+gridded <- plot_grid(plot1+ theme(legend.position="none"),plot2+ theme(legend.position="none"), nrow = 1)
+
+
+title <- ggplot() + 
+  labs(title = "Medicaid Spending vs Opioid Death Rate",subtitle = "Different colors represent a different state.") +theme_minimal()
+plot_grid(title, gridded, legend, ncol = 1, rel_heights = c(0.15, 1))
 ```
 ```{r}
-data <- data %>% filter(Year != 2019)
+## get 3 highest death rates
+highest <- data %>% group_by(Year)%>% slice_max(n=3, rate_100000) %>% ungroup()%>% count(State) %>% slice_max(n=3, n)
+highest$State
+## get 3 lowest death rates
+lowest <- data %>% group_by(Year)%>% slice_min(n=3, rate_100000) %>% ungroup()%>% count(State) %>% slice_min(n=3, n)
+lowest$State
+
+
+```
+
+
+```{r}
+data1_high <- data %>% filter(State %in% c("West Virginia", "Kentucky","New Mexico"))
+data2_low <- data %>% filter(State %in% c("Montana", "Maryland", "Nebraska"))
+
+plot1 <- data1_high %>% ggplot() +geom_line(aes(x = Year, y =percap_adjmedamt))+ ylab("Medicaid Spending")+facet_wrap(~ State)
+plot2 <- data1_high %>% ggplot() +geom_line(aes(x = Year, y =rate_100000))+ylab("Death Rate (Per 100,0000)")+facet_wrap(~ State)
+
+gridded <- plot_grid(plot1,plot2, nrow =2)
+title <- ggplot() + 
+  labs(title = "Medicaid Spending and Death Rate over Time",subtitle = "The 3 States with the highest Death Rate") +theme_minimal()
+
+plot_grid(title, gridded, legend, ncol = 1, rel_heights = c(0.15, 1))
+
+
+plot1 <-data2_low %>% ggplot() +geom_line(aes(x = Year, y =percap_adjmedamt))+ ylab("Medicaid Spending")+facet_wrap(~ State)
+plot2 <- data2_low %>% ggplot() +geom_line(aes(x = Year, y =rate_100000))+ylab("Death Rate (Per 100,0000)")+facet_wrap(~ State)
+
+gridded <- plot_grid(plot1,plot2, nrow =2)
+title <- ggplot() + 
+  labs(title = "Medicaid Spending and Death Rate over Time",subtitle = "The 3 States with the lowest Death Rate") +theme_minimal()
+
+plot_grid(title, gridded, legend, ncol = 1, rel_heights = c(0.15, 1))
+
+
+```
+
+
+
+```{r, results = "asis"}
+summary_table <- data %>% group_by(Year) %>% summarize(`Average Medicaid Spending` = mean(percap_adjmedamt, na.rm = TRUE), `Average Prescriptions` = mean(percap_rx, na.rm = TRUE), `Average Age` = mean(Mean_Age, na.rm = TRUE), `Percent Legal Injections` = mean(legal_injection, na.rm = TRUE)*100, `Average Physician per Pop` = mean(physician_per_pop, na.rm = TRUE), `Average Unemployment` = mean(Unemployment_rate, na.rm = TRUE))
+
+
+library(kableExtra)
+kableExtra::kable(summary_table, booktabs = T)
+
+# variables <- c("percap_adjmedamt", "percap_rx", "Mean_Age", "legal_injection", "physician_per_pop", "Unemployment_rate")
+# 
+# 
+# highest_spending <- data %>% slice_max(n = 1, percap_adjmedamt) %>% select(Year, State, percap_adjmedamt) 
+# lowest_spending <- data %>% slice_min(n = 1, percap_adjmedamt) %>% select(Year, State, percap_adjmedamt) 
+
+```
+
+
+```{r}
 data_panel <- pdata.frame(data, index=c("State", "Year"))
 pdim(data_panel)
-
 
 ```
 
@@ -50,75 +121,127 @@ pdim(data_panel)
 ## Initial Analysis
 
 ```{r}
-within_model_fixed <- plm(rate ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "within")
-random_model <- plm(rate ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "random")
-pooled_model <- plm(rate ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "pooling")
 
-within_model_fixed_1000 <- plm(rate_1000 ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "within")
-random_model_1000 <- plm(rate_1000 ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "random")
-pooled_model_1000 <- plm(rate_1000 ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "pooling")
+within_model_fixed_100000 <- plm(rate_100000 ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "within")
+random_model_100000 <- plm(rate_100000 ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "random")
+pooled_model_100000 <- plm(rate_100000 ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "pooling")
 
-within_model_fixed_10000 <- plm(rate_10000 ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "within")
-random_model_10000 <- plm(rate_1000 ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "random")
-pooled_model_10000 <- plm(rate_1000 ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "pooling")
 ```
 
 
 ```{r, results = "asis"}
 
-# replace_numbers = function(x, cutoff=4, digits=3, scipen=-7) {
-#   ifelse(nchar(x) < cutoff, x, prettyNum(as.numeric(x), digits=digits, scientific=scipen))
-# }
-#replace_numbers = function(x){ (as.numeric(formatC(x)))}
-replace_numbers <- function(x) (x * 100000)
-
-table1 <- stargazer(pooled_model, within_model_fixed, random_model, apply.coef = replace_numbers, apply.se = replace_numbers, dep.var.labels = "", dep.var.caption = "\\emph{Dependent Variable:} Opioid Related Death Rate", covariate.labels = c("Medicaid Spending Rate (per 1000)", "Prescription Rate (per 1000)", "Mean Age", "Legal Injection Site Exists",
-                               "Physician Rate (per Population)", "Unemployment Rate"), column.labels = c("Pooled", "Fixed", "Random"), title = "Model Comparisons", notes = "\\emph{All coefficients and standard errors multipled by 100,000.}")
-
-table2 <- stargazer(pooled_model_1000, within_model_fixed_1000, random_model_1000, dep.var.labels = "", dep.var.caption = "\\emph{Dependent Variable:} Opioid Related Death Rate", covariate.labels = c("Medicaid Spending Rate (per 1000)", "Prescription Rate (per 1000)", "Mean Age", "Legal Injection Site Exists",
-                               "Physician Rate (per Population)", "Unemployment Rate"), column.labels = c("Pooled", "Fixed", "Random"), title = "Model Comparisons", notes = "1000")
-
-table3 <- stargazer(pooled_model_10000, within_model_fixed_10000, random_model_10000, dep.var.labels = "", dep.var.caption = "\\emph{Dependent Variable:} Opioid Related Death Rate", covariate.labels = c("Medicaid Spending Rate (per 1000)", "Prescription Rate (per 1000)", "Mean Age", "Legal Injection Site Exists",
-                               "Physician Rate (per Population)", "Unemployment Rate"), column.labels = c("Pooled", "Fixed", "Random"), title = "Model Comparisons", notes = "10000")
+stargazer(pooled_model_100000, within_model_fixed_100000, random_model_100000, dep.var.caption = "\\emph{Dependent Variable:} Opioid Related Deaths Per 100,000", covariate.labels = c("Medicaid Spending Rate (per 1000)", "Prescription Rate (per 1000)", "Mean Age", "Legal Injection Site Exists",
+                               "Physician Rate (per Population)", "Unemployment Rate"), column.labels = c("Pooled", "Fixed", "Random"), title = "Model Comparisons (Untransformed)", dep.var.labels = "", single.row = TRUE)
 
 
 ```
 
-```{r}
+```{r, results = "asis"}
 # fixed effects v pooled:
-pFtest(within_model_fixed, pooled_model) ## pvalue is small <- fixed effects are needed
+results_ftest <- pFtest(within_model_fixed_100000, pooled_model_100000) ## pvalue is small <- fixed effects are needed
 
 ## significance of individual effects:
-plmtest(pooled_model, effect="individual") ## pvalue is small <- heterogeneity among individuals may be significant
+results_lagrange <- plmtest(pooled_model_100000, effect="individual") ## pvalue is small <- heterogeneity among individuals may be significant
 
 ## fixed v random 
-phtest(within_model_fixed, random_model) ## pvalue is large <- random effects are necessary
+results_hausman <- phtest(within_model_fixed_100000, random_model_100000) ## pvalue is large <- random effects are necessary
+
+results_assumptions <- data.frame(`Test Name` = c("Fixed Effects", "Random Effects", "Endogeneity"), `P-value` =c(results_ftest$p.value, results_lagrange$p.value, results_hausman$p.value), `Method` = c("F test for individual effects", "Lagrange Multiplier Test - (Honda)", "Hausman Test") )
+rownames(results_assumptions) <- c(1,2,3)
+kable(results_assumptions, format = "latex", booktabs = T)
 ```
-```{r}
-ranef(random_model)
-```
+
 
 
 
 ### OLS Assumptions
 
 ```{r}
-data_assumptions <- data.frame(residuals = residuals(random_model), fitted = predict(random_model))
+data_assumptions <- data.frame(residuals = residuals(random_model_100000), fitted = predict(random_model_100000))
 
-# residuals vs observed --> assumption of linearity
 
-#ggplot()+geom_point(aes(x = data_assumptions$residuals, y = data_panel$rate))
 
 # residuals vs fitted --> homogeneity of variance (heteroskedasticity)
-# library(sandwich)
-# sandwich::coeftest(random_model) ## ??
 
-data_assumptions %>% ggplot(aes(residuals, fitted)) +geom_point()
+lmtest::bptest(random_model_100000)
+data_assumptions %>% ggplot(aes(residuals, fitted)) +geom_point() +ggtitle('Residuals vs Fitted')+geom_hline(yintercept =0)+ geom_vline(xintercept =0)
 
 # histogram of residuals --> normality of residuals
-data_assumptions %>% ggplot(aes(residuals)) +geom_histogram()
+plot1 <- data_assumptions %>% ggplot(aes(residuals)) +geom_histogram() + ggtitle("Residual Histogram (Untransformed)")
 
-## test for serial correlation
+plot2 <- data_assumptions %>% ggplot(aes(sample = residuals))+ stat_qq() + stat_qq_line() +ggtitle("Q-Q plot")
+
+plot_grid(plot1, plot2, ncol =2)
+
+
+shapiro.test(data_assumptions$residuals) ## residuals are not normally distributed
+## objective test for normality
+
+```
+
+
+
+```{r}
+
+## log transform dependent variable
+## refit models
+log_within_model_fixed_100000 <- plm(log(rate_100000) ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "within")
+log_random_model_100000 <- plm(log(rate_100000) ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "random")
+log_pooled_model_100000 <- plm(log(rate_100000) ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "pooling")
+
+
+stargazer(log_pooled_model_100000, log_within_model_fixed_100000, log_random_model_100000, dep.var.caption = "\\emph{Dependent Variable:} Log of Opioid Related Deaths Per 100,000", covariate.labels = c("Medicaid Spending Rate (per 1000)", "Prescription Rate (per 1000)", "Mean Age", "Legal Injection Site Exists",
+                               "Physician Rate (per Population)", "Unemployment Rate"), column.labels = c("Pooled", "Fixed", "Random"), title = "Model Comparisons (Log transformed)", dep.var.labels = "", single.row = TRUE)
+
+```
+
+
+```{r}
+
+pFtest(log_within_model_fixed_100000, log_pooled_model_100000) ## pvalue is small <- fixed effects are needed
+
+## significance of individual effects:
+plmtest(log_pooled_model_100000, effect="individual") ## pvalue is small <- heterogeneity among individuals may be significant
+
+## fixed v random 
+phtest(log_within_model_fixed_100000, log_random_model_100000) ## pvalue is small <- random effects are not necessary
+
+
+```
+
+
+```{r}
+data_assumptions1 <- data.frame(residuals = residuals(log_within_model_fixed_100000))
+
+## OLS tests 
+plot1 <- data_assumptions1 %>% ggplot(aes(residuals)) +geom_histogram() + ggtitle("Residual Histogram (Log Transformed)")
+
+plot2 <- data_assumptions1 %>% ggplot(aes(sample = residuals))+ stat_qq() + stat_qq_line() +ggtitle("Q-Q plot")
+
+plot_grid(plot1, plot2, ncol =2)
+
+
+shapiro.test(data_assumptions1$residuals) ## residuals are not normally distributed
+## objective test for normality
+
+```
+
+
+```{r}
+# test for serial correlation
+lmtest::bptest(log_within_model_fixed_100000)
+
+plm::pbgtest(log_within_model_fixed_100000) ## there is serial correlation, lets correct for it
+library(sandwich)
+library(lmtest)
+hac_model <- coeftest(log_within_model_fixed_100000, 
+                               vcov = vcovHC(log_within_model_fixed_100000, 
+                                             method = "arellano", 
+                                             type = "HC3"))
+
+stargazer::stargazer(log_within_model_fixed_100000, hac_model, dep.var.caption = "\\emph{Dependent Variable:} Opioid Related Deaths Per 100,000", covariate.labels = c("Medicaid Spending Rate (per 1000)", "Prescription Rate (per 1000)", "Mean Age", "Legal Injection Site Exists",
+                               "Physician Rate (per Population)", "Unemployment Rate"), column.labels = c("Fixed Effects (normal)", "Robust Standard Errors"), title = "Robust Standard Errors (Serial Correlation)", dep.var.labels = "", single.row = TRUE)
 
 ```
 
