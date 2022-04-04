@@ -22,9 +22,10 @@ library(broom)
 
 ## Introduction
 
-We are examining the relationship between opioid related deaths and medicaid spending. Our data is from 2010 - 2019 at the state level. We will use a linear mixed model, considering both fixed and random effects for panel data. 
+We are examining the relationship between opioid related deaths and medicaid spending. Our data is from 2010 - 2019 at the state level. We will use a linear mixed model, considering both fixed and random effects for panel data.
 
 #### Load in Data
+
 ```{r}
 data <- read.csv("final_data_5746.csv")
 
@@ -40,7 +41,6 @@ data <- data %>% mutate(rate_100000 = rate*100000)
 
 ```
 
-
 ## Initial Data Exploration
 
 ```{r}
@@ -55,6 +55,7 @@ title <- ggplot() +
   labs(title = "Medicaid Spending vs Opioid Death Rate",subtitle = "Different colors represent a different state.") +theme_minimal()
 plot_grid(title, gridded, legend, ncol = 1, rel_heights = c(0.15, 1))
 ```
+
 ```{r}
 ## get 3 highest death rates
 highest <- data %>% group_by(Year)%>% slice_max(n=3, rate_100000) %>% ungroup()%>% count(State) %>% slice_max(n=3, n)
@@ -65,7 +66,6 @@ lowest$State
 
 
 ```
-
 
 ```{r}
 data1_high <- data %>% filter(State %in% c("West Virginia", "Kentucky","New Mexico"))
@@ -93,30 +93,28 @@ plot_grid(title, gridded, legend, ncol = 1, rel_heights = c(0.15, 1))
 
 ```
 
-
-
 ```{r, results = "asis"}
 summary_table <- data %>% group_by(Year) %>% summarize(`Average Medicaid Spending` = mean(percap_adjmedamt, na.rm = TRUE), `Average Prescriptions` = mean(percap_rx, na.rm = TRUE), `Average Age` = mean(Mean_Age, na.rm = TRUE), `Percent Legal Injections` = mean(legal_injection, na.rm = TRUE)*100, `Average Physician per Pop` = mean(physician_per_pop, na.rm = TRUE), `Average Unemployment` = mean(Unemployment_rate, na.rm = TRUE))
+summary_table <- summary_table %>% mutate(`Average Medicaid Spending` = round(`Average Medicaid Spending`, 2),
+                                          `Average Prescriptions` = round(`Average Prescriptions`, 2),
+                                          `Average Age` = round(`Average Age`,2),
+                                         `Percent Legal Injections` = round(`Percent Legal Injections`, 2),
+                                         `Average Physician per Pop` = round(`Average Physician per Pop`, 4),
+                                         `Average Unemployment` = round(`Average Unemployment`,3))
 
 
 library(kableExtra)
-kableExtra::kable(summary_table, booktabs = T)
+kableExtra::kable(summary_table, booktabs = T)%>%column_spec(1:5, width = "5cm")
 
-# variables <- c("percap_adjmedamt", "percap_rx", "Mean_Age", "legal_injection", "physician_per_pop", "Unemployment_rate")
-# 
-# 
-# highest_spending <- data %>% slice_max(n = 1, percap_adjmedamt) %>% select(Year, State, percap_adjmedamt) 
-# lowest_spending <- data %>% slice_min(n = 1, percap_adjmedamt) %>% select(Year, State, percap_adjmedamt) 
+
 
 ```
-
 
 ```{r}
 data_panel <- pdata.frame(data, index=c("State", "Year"))
 pdim(data_panel)
 
 ```
-
 
 ## Initial Analysis
 
@@ -127,7 +125,6 @@ random_model_100000 <- plm(rate_100000 ~ percap_adjmedamt +percap_rx +Mean_Age +
 pooled_model_100000 <- plm(rate_100000 ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "pooling")
 
 ```
-
 
 ```{r, results = "asis"}
 
@@ -151,9 +148,6 @@ results_assumptions <- data.frame(`Test Name` = c("Fixed Effects", "Random Effec
 rownames(results_assumptions) <- c(1,2,3)
 kable(results_assumptions, format = "latex", booktabs = T)
 ```
-
-
-
 
 ### OLS Assumptions
 
@@ -180,8 +174,6 @@ shapiro.test(data_assumptions$residuals) ## residuals are not normally distribut
 
 ```
 
-
-
 ```{r, results = "asis"}
 
 ## log transform dependent variable
@@ -196,7 +188,6 @@ stargazer(log_pooled_model_100000, log_within_model_fixed_100000, log_random_mod
 
 ```
 
-
 ```{r}
 
 pFtest(log_within_model_fixed_100000, log_pooled_model_100000) ## pvalue is small <- fixed effects are needed
@@ -207,9 +198,11 @@ plmtest(log_pooled_model_100000, effect="individual") ## pvalue is small <- hete
 ## fixed v random 
 phtest(log_within_model_fixed_100000, log_random_model_100000) ## pvalue is small <- random effects are not necessary
 
+results_assumptions <- data.frame(`Test Name` = c("Fixed Effects", "Random Effects", "Endogeneity"), `P-value` =c(results_ftest$p.value, results_lagrange$p.value, results_hausman$p.value), `Method` = c("F test for individual effects", "Lagrange Multiplier Test - (Honda)", "Hausman Test") )
+rownames(results_assumptions) <- c(1,2,3)
+kable(results_assumptions, format = "latex", booktabs = T)
 
 ```
-
 
 ```{r}
 data_assumptions1 <- data.frame(residuals = residuals(log_within_model_fixed_100000))
@@ -227,7 +220,6 @@ shapiro.test(data_assumptions1$residuals) ## residuals are not normally distribu
 
 ```
 
-
 ```{r, results = "asis"}
 # test for serial correlation
 lmtest::bptest(log_within_model_fixed_100000)
@@ -244,4 +236,3 @@ stargazer::stargazer(log_within_model_fixed_100000, hac_model, apply.coef = exp,
                                "Physician Rate (per Population)", "Unemployment Rate"), column.labels = c("Fixed Effects (normal)", "Robust Standard Errors"), title = "Robust Standard Errors (Serial Correlation)", dep.var.labels = "", single.row = TRUE, t.auto=F, p.auto=F, report = "vct*")
 
 ```
-
