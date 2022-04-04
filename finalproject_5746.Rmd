@@ -191,7 +191,7 @@ log_random_model_100000 <- plm(log(rate_100000) ~ percap_adjmedamt +percap_rx +M
 log_pooled_model_100000 <- plm(log(rate_100000) ~ percap_adjmedamt +percap_rx +Mean_Age +as.factor(legal_injection) +physician_per_pop +Unemployment_rate, data = data_panel, model = "pooling")
 
 
-stargazer(log_pooled_model_100000, log_within_model_fixed_100000, log_random_model_100000, dep.var.caption = "\\emph{Dependent Variable:} Log of Opioid Related Deaths Per 100,000", covariate.labels = c("Medicaid Spending Rate (per 1000)", "Prescription Rate (per 1000)", "Mean Age", "Legal Injection Site Exists",
+stargazer(log_pooled_model_100000, log_within_model_fixed_100000, log_random_model_100000,  apply.coef = exp, dep.var.caption = "\\emph{Dependent Variable:} Log of Opioid Related Deaths Per 100,000", covariate.labels = c("Medicaid Spending Rate (per 1000)", "Prescription Rate (per 1000)", "Mean Age", "Legal Injection Site Exists",
                                "Physician Rate (per Population)", "Unemployment Rate"), column.labels = c("Pooled", "Fixed", "Random"), title = "Model Comparisons (Log transformed)", dep.var.labels = "", single.row = TRUE)
 
 ```
@@ -240,7 +240,7 @@ hac_model <- coeftest(log_within_model_fixed_100000,
                                              method = "arellano", 
                                              type = "HC3"))
 
-stargazer::stargazer(log_within_model_fixed_100000, hac_model, dep.var.caption = "\\emph{Dependent Variable:} Opioid Related Deaths Per 100,000", covariate.labels = c("Medicaid Spending Rate (per 1000)", "Prescription Rate (per 1000)", "Mean Age", "Legal Injection Site Exists",
+stargazer::stargazer(log_within_model_fixed_100000, hac_model, apply.coef = exp, dep.var.caption = "\\emph{Dependent Variable:} Opioid Related Deaths Per 100,000", covariate.labels = c("Medicaid Spending Rate (per 1000)", "Prescription Rate (per 1000)", "Mean Age", "Legal Injection Site Exists",
                                "Physician Rate (per Population)", "Unemployment Rate"), column.labels = c("Fixed Effects (normal)", "Robust Standard Errors"), title = "Robust Standard Errors (Serial Correlation)", dep.var.labels = "", single.row = TRUE)
 
 ```
