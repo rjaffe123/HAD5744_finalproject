@@ -104,8 +104,7 @@ summary_table <- summary_table %>% mutate(`Average Medicaid Spending` = round(`A
 
 
 library(kableExtra)
-kableExtra::kable(summary_table, booktabs = T)%>%column_spec(1:5, width = "5cm")
-
+kableExtra::kable(summary_table, booktabs = T)%>%kable_styling(latex_options = c('scale_down'))
 
 
 ```
@@ -184,21 +183,21 @@ log_pooled_model_100000 <- plm(log(rate_100000) ~ percap_adjmedamt +percap_rx +M
 
 
 stargazer(log_pooled_model_100000, log_within_model_fixed_100000, log_random_model_100000,  apply.coef = exp, dep.var.caption = "\\emph{Dependent Variable:} Log of Opioid Related Deaths Per 100,000", covariate.labels = c("Medicaid Spending Rate (per 1000)", "Prescription Rate (per 1000)", "Mean Age", "Legal Injection Site Exists",
-                               "Physician Rate (per Population)", "Unemployment Rate"), column.labels = c("Pooled", "Fixed", "Random"), title = "Model Comparisons (Log transformed)", dep.var.labels = "", single.row = TRUE, t.auto=F, p.auto=F, report = "vct*")
+                               "Physician Rate (per Population)", "Unemployment Rate"), column.labels = c("Pooled", "Fixed", "Random"), title = "Model Comparisons (Log transformed)", dep.var.labels = "", single.row = TRUE, t.auto=F, p.auto=F)
 
 ```
 
 ```{r}
 
-pFtest(log_within_model_fixed_100000, log_pooled_model_100000) ## pvalue is small <- fixed effects are needed
+results_ftest1 <- pFtest(log_within_model_fixed_100000, log_pooled_model_100000) ## pvalue is small <- fixed effects are needed
 
 ## significance of individual effects:
-plmtest(log_pooled_model_100000, effect="individual") ## pvalue is small <- heterogeneity among individuals may be significant
+results_lagrange1 <- plmtest(log_pooled_model_100000, effect="individual") ## pvalue is small <- heterogeneity among individuals may be significant
 
 ## fixed v random 
-phtest(log_within_model_fixed_100000, log_random_model_100000) ## pvalue is small <- random effects are not necessary
+results_hausman1 <- phtest(log_within_model_fixed_100000, log_random_model_100000) ## pvalue is small <- random effects are not necessary
 
-results_assumptions <- data.frame(`Test Name` = c("Fixed Effects", "Random Effects", "Endogeneity"), `P-value` =c(results_ftest$p.value, results_lagrange$p.value, results_hausman$p.value), `Method` = c("F test for individual effects", "Lagrange Multiplier Test - (Honda)", "Hausman Test") )
+results_assumptions <- data.frame(`Test Name` = c("Fixed Effects", "Random Effects", "Endogeneity"), `P-value` =c(results_ftest1$p.value, results_lagrange1$p.value, results_hausman1$p.value), `Method` = c("F test for individual effects", "Lagrange Multiplier Test - (Honda)", "Hausman Test") )
 rownames(results_assumptions) <- c(1,2,3)
 kable(results_assumptions, format = "latex", booktabs = T)
 
@@ -233,6 +232,6 @@ hac_model <- coeftest(log_within_model_fixed_100000,
                                              type = "HC3"))
 
 stargazer::stargazer(log_within_model_fixed_100000, hac_model, apply.coef = exp, dep.var.caption = "\\emph{Dependent Variable:} Opioid Related Deaths Per 100,000", covariate.labels = c("Medicaid Spending Rate (per 1000)", "Prescription Rate (per 1000)", "Mean Age", "Legal Injection Site Exists",
-                               "Physician Rate (per Population)", "Unemployment Rate"), column.labels = c("Fixed Effects (normal)", "Robust Standard Errors"), title = "Robust Standard Errors (Serial Correlation)", dep.var.labels = "", single.row = TRUE, t.auto=F, p.auto=F, report = "vct*")
+                               "Physician Rate (per Population)", "Unemployment Rate"), column.labels = c("Fixed Effects (normal)", "Robust Standard Errors"), title = "Robust Standard Errors (Serial Correlation)", dep.var.labels = "", single.row = TRUE, t.auto=F, p.auto=F)
 
 ```
